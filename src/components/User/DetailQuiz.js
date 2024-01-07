@@ -1,18 +1,20 @@
 import {useParams, useLocation} from "react-router-dom";
 import {useEffect, useState} from "react";
-import {getDataQuiz} from "../../services/apiService";
+import {getDataQuiz, postSubmitQuiz} from "../../services/apiService";
 import _ from "lodash";
 import './DetailQuiz.scss';
 import Question from "./Question";
 import data from "bootstrap/js/src/dom/data";
+import ModalResult from "./ModalResult";
 
 const DetailQuiz = (props) => {
     const params = useParams();
     const location = useLocation();
-    console.log(location);
     const quizId = params.id;
     const [dataQuiz, setDataQuiz] = useState([]);
     const [index, setIndex] = useState(0);
+    const [isShowModalResult, setIsShowModalResult] = useState(false);
+    const [dataModalResult, setDataModalResult] = useState({});
     useEffect(async () => {
         let res = await getDataQuiz(quizId);
         if (res && res.EC === 0) {
@@ -69,6 +71,57 @@ const DetailQuiz = (props) => {
             setDataQuiz(dataQuizClone);
         }
     }
+    
+    const handleFinishQuiz = async () => {
+        // {
+        //     "quizId": 1,
+        //     "answers": [
+        //     {
+        //         "questionId": 1,
+        //         "userAnswerId": [3]
+        //     },
+        //     {
+        //         "questionId": 2,
+        //         "userAnswerId": [6]
+        //     }
+        // ]
+        // }
+      console.log("check data", dataQuiz)
+        let payLoad = {
+            quizId: +quizId,
+            answers: []
+        }
+        let answers = [];
+        if (dataQuiz && dataQuiz.length > 0) {
+            dataQuiz.forEach(question => {
+                let questionId = question.questionId;
+                let userAnswerId = [];
+
+                question.answers.forEach(a => {
+                    if (a.isSelected === true) {
+                        userAnswerId.push(a.id);
+                    }
+                })
+                answers.push({
+                    questionId: +questionId,
+                    userAnswerId: userAnswerId
+                })
+            })
+            payLoad.answers = answers;
+            let res = await postSubmitQuiz(payLoad);
+            console.log(res);
+            if (res && res.EC === 0) {
+                setDataModalResult({
+                    countCorrect: res.DT.countCorrect,
+                    countTotal: res.DT.countTotal,
+                    quizData: res.DT.quizData
+                })
+                setIsShowModalResult(true);
+            } else {
+                alert("Something Wrong!")
+            }
+        }
+    }
     return (
         <div className="detail-quiz-container">
             <div className="left-content">
@@ -89,12 +142,17 @@ const DetailQuiz = (props) => {
                     <button className="btn btn-secondary" onClick={() => handlePre()}>Prev</button>
                     <button className="btn btn-primary" onClick={() => handleNex()}>Next</button>
 
-                    <button className="btn btn-warning" onClick={() => handleNex()}>Finish</button>
+                    <button className="btn btn-warning" onClick={() => handleFinishQuiz()}>Finish</button>
                 </div>
             </div>
             <div className="right-content">
                 count down
             </div>
+            <ModalResult
+                show={isShowModalResult}
+                setShow={setIsShowModalResult}
+                dataModalResult={dataModalResult}
+            />
         </div>
     )
 }
